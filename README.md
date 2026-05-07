@@ -10,7 +10,7 @@ The SEON Stream SDK continuously collects behavioural signals from your iOS appl
 - Xcode 15 or higher
 - Swift 5.9 or higher
 
-An API key issued by SEON is required. Contact your SEON account representative to obtain one.
+An API token issued by SEON is required. Contact your SEON account representative to obtain one.
 
 ---
 
@@ -24,14 +24,12 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
-Select version `1.0.0` or later.
-
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '1.0.0'
+pod 'SeonStreamSDK', '1.0.1'
 ```
 
 Then run:
@@ -51,7 +49,7 @@ The SDK is configured through `SEONSTGlobalConfig`, which is set once at initial
 
 | Parameter | Type           | Description                                                     | Default |
 | --------- | -------------- | --------------------------------------------------------------- | ------- |
-| `token`   | `String`       | Your SEON API key.                                              | —       |
+| `token`   | `String`       | Your SEON API token.                                            | —       |
 | `region`  | `SEONSTRegion` | Target region. Currently `.eu` (`SEONSTRegionEU`) is supported. | `.eu`   |
 
 
@@ -72,7 +70,7 @@ struct MyApp: App {
     init() {
         SEONSTStream.setDelegate(appDelegate)
         SEONSTStream.initialize(
-            SEONSTGlobalConfig(token: "YOUR_API_KEY", region: .eu)
+            SEONSTGlobalConfig(token: "YOUR_API_TOKEN", region: .eu)
         )
     }
 
@@ -92,7 +90,7 @@ struct MyApp: App {
     didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [SEONSTStream setDelegate:self];
     [SEONSTStream initialize:[[SEONSTGlobalConfig alloc]
-        initWithToken:@"YOUR_API_KEY"
+        initWithToken:@"YOUR_API_TOKEN"
         region:SEONSTRegionEU]];
     return YES;
 }
@@ -230,16 +228,16 @@ The delegate's `onStreamFinished` is called once the session has stopped. Errors
 
 ### Updating the token
 
-Use `setToken(_:)` to replace the API key after initialization, for example when rotating credentials.
+Use `setToken(_:)` to replace the API token after initialization, for example when rotating credentials.
 
 ```swift
 // Swift
-SEONSTStream.sharedManager()?.setToken("NEW_API_KEY")
+SEONSTStream.sharedManager()?.setToken("NEW_API_TOKEN")
 ```
 
 ```objc
 // Objective-C
-[[SEONSTStream sharedManager] setToken:@"NEW_API_KEY"];
+[[SEONSTStream sharedManager] setToken:@"NEW_API_TOKEN"];
 ```
 
 ### Custom events
@@ -308,7 +306,7 @@ All `NSError` values produced by the SDK use domain `SEONSTErrorDomain`. Codes a
 | 1010 | `SEONSTErrorCodeSdkAlreadyInitialized`       | `initialize()` was called more than once.                                                                                                                                           |
 | 1011 | `SEONSTErrorCodeMaxBackgroundDurationTooBig` | The `maxBackgroundDuration` value exceeds the maximum of `172800` seconds (48 hours).                                                                                               |
 | 1012 | `SEONSTErrorCodeSessionTimeout`              | The server reported that the session reached its maximum allowed duration. The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down. |
-| 1013 | `SEONSTErrorCodeAuthenticationFailed`        | The backend rejected authentication (for example an invalid API key). The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down.      |
+| 1013 | `SEONSTErrorCodeAuthenticationFailed`        | The backend rejected authentication (for example an invalid API token). The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down.      |
 | 1014 | `SEONSTErrorCodeIpBanned`                    | The client IP address was banned by the service. The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down.                           |
 
 
@@ -441,6 +439,10 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 ---
 
 ## Changelog
+
+### 1.0.1
+
+- Fix internal view synchronisation issue
 
 ### 1.0.0
 
