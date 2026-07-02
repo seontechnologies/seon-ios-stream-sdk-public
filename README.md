@@ -161,6 +161,8 @@ UIKit applications do not need this step.
 
 ## Authentication
 
+> **Version note:** The `authData`-based authentication introduced in 1.1.0 is required for production integrations. Version 1.0.0 was an open preview release without this mechanism; **1.1.0 is the minimum supported version**.
+
 Each stream session is authorized with an **authData** value from the SEON authentication API. It is short-lived; your app should fetch a new one before starting a session and again after an auth failure.
 
 1. Your backend calls `POST {environment}/session-monitoring-api/v1/auth` with the header `X-API-KEY: <your api key>` and passes the response body to the app as the `authData` string. The API key must never be embedded in the mobile application.
@@ -390,6 +392,8 @@ What is recorded:
 
 ## Common integration difficulties
 
+> **Note:** Use SDK version 1.1.0 or higher. Version 1.0.0 was a preview release and is not supported for production use.
+
 - **Initialize before first use** — Calling `SEONSTStream.sharedManager()` before `SEONSTStream.initialize()` returns `nil` and calls the delegate `onStreamError(_:)` method. Initialize the SDK once during app startup.
 - **Fetch authData per session** — Call `GET /session-monitoring-api/v1/auth` with your `X-API-KEY` header before each session and pass the response string as `SEONSTSessionConfig.authData`. Do not embed long-lived secrets in the app binary.
 - **Resume after auth failure** — On authentication failure the SDK clears the running stream but keeps the stored session. Call `startStreamWith(config:)` again with fresh `authData`, the same `label`, and a `maxBackgroundDuration` window that still covers the gap since the last event.
@@ -452,6 +456,8 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 
 ### 1.1.0
 
+**First production-ready release.**
+
 - `SEONSTSessionConfig.authData` replaces `token`: pass the opaque `authData` string from `GET /session-monitoring-api/v1/auth` to start a session. The SDK extracts the JWT and additional configuration from it automatically.
 - Introduced new initialize method `[SEONSTStream initializeSdk]`
 - `[SEONSTStream initialize:(SEONSTGlobalConfig *)configuration]`, `SEONSTGlobalConfig` and `setToken(_:)` are deprecated
@@ -463,5 +469,5 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 
 ### 1.0.0
 
-- Initial release
+- Initial open preview release — not supported for production use.
 
