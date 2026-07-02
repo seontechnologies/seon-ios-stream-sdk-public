@@ -9,8 +9,9 @@ The SEON Stream SDK continuously collects behavioural signals from your iOS appl
 - iOS 13.0 or higher
 - Xcode 15 or higher
 - Swift 5.9 or higher
+- SEON Stream SDK 1.1.0 or higher (minimum supported version)
 
-An API token issued by SEON is required. Contact your SEON account representative to obtain one.
+Integrations authenticate with an **authData** token obtained from the SEON authentication API (contact your SEON account representative for access).
 
 ---
 
@@ -24,12 +25,14 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
+Select version `1.1.0` or later.
+
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '1.0.1'
+pod 'SeonStreamSDK', '1.1.0'
 ```
 
 Then run:
@@ -42,24 +45,13 @@ pod install
 
 ## Getting started
 
-### Configuration
-
-The SDK is configured through `SEONSTGlobalConfig`, which is set once at initialization.
-
-
-| Parameter | Type           | Description                                                     | Default |
-| --------- | -------------- | --------------------------------------------------------------- | ------- |
-| `token`   | `String`       | Your SEON API token.                                            | —       |
-| `region`  | `SEONSTRegion` | Target region. Currently `.eu` (`SEONSTRegionEU`) is supported. | `.eu`   |
-
-
 ### Initialization
 
-Call `SEONSTStream.initialize()` once, as early as possible, typically in your `AppDelegate` or `@main` `App` initializer.
+Call `SEONSTStream.initializeSdk()` once, as early as possible, typically in your `AppDelegate` or `@main` `App` initializer. The SDK no longer takes credentials at initialization; pass a JWT when starting each session (see [Authentication](#authentication)).
 
-Accessing `SEONSTStream.sharedManager()` before initialization returns nil and calls the delegate `onStreamError(_:)` method. Calling `initialize()` more than once reports `SEONSTErrorCodeSdkAlreadyInitialized` through the delegate.
+Accessing `SEONSTStream.sharedManager()` before initialization returns nil and calls the delegate `onStreamError(_:)` method. Calling `initializeSdk()` more than once reports `SEONSTErrorCodeSdkAlreadyInitialized` through the delegate.
 
-Set the delegate before calling `initialize()` to ensure no events are missed.
+Set the delegate before calling `initializeSdk()` to ensure no events are missed.
 
 ```swift
 // Swift
@@ -69,9 +61,7 @@ import SeonStreamSDK
 struct MyApp: App {
     init() {
         SEONSTStream.setDelegate(appDelegate)
-        SEONSTStream.initialize(
-            SEONSTGlobalConfig(token: "YOUR_API_TOKEN", region: .eu)
-        )
+        SEONSTStream.initializeSdk()
     }
 
     var body: some Scene {
@@ -89,9 +79,7 @@ struct MyApp: App {
 - (BOOL)application:(UIApplication *)application
     didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [SEONSTStream setDelegate:self];
-    [SEONSTStream initialize:[[SEONSTGlobalConfig alloc]
-        initWithToken:@"YOUR_API_TOKEN"
-        region:SEONSTRegionEU]];
+    [SEONSTStream initializeSdk];
     return YES;
 }
 ```
@@ -171,36 +159,50 @@ UIKit applications do not need this step.
 
 ---
 
+## Authentication
+
+Each stream session is authorized with an **authData** value from the SEON authentication API. It is short-lived; your app should fetch a new one before starting a session and again after an auth failure.
+
+1. Your backend calls `POST {environment}/session-monitoring-api/v1/auth` with the header `X-API-KEY: <your api key>` and passes the response body to the app as the `authData` string. The API key must never be embedded in the mobile application.
+2. Pass `authData` in `SEONSTSessionConfig.authData` when calling `startStreamWith(config:)`.
+3. The SDK extracts the session JWT and additional configuration from `authData` automatically.
+4. If the JWT inside `authData` expires and the backend rejects further uploads, the SDK stops the stream and reports `SEONSTErrorCodeAuthenticationFailed` (see [Error handling](#error-handling)). The stored session is **not** cleared on auth failure, so you can fetch a fresh `authData` and call `startStreamWith(config:)` again with the **same `label`** to continue the session, as long as you are still within `maxBackgroundDuration`.
+
+---
+
 ## Starting and stopping a session
 
 ### Starting a session
 
-Use `SEONSTSessionConfig` to configure a session with an optional label and background duration limit.
+Use `SEONSTSessionConfig` to configure a session. `authData` from the SEON authentication API is required for production integrations.
 
 ```swift
 // Swift
-let config = SEONSTSessionConfig(label: "checkout-flow", maxBackgroundDuration: 60)
+let authData = await fetchAuthData() // GET /session-monitoring-api/v1/auth
+let config = SEONSTSessionConfig(
+    authData: authData,
+    label: "checkout-flow",
+    maxBackgroundDuration: 60
+)
 SEONSTStream.sharedManager()?.startStreamWith(config: config)
 ```
 
 ```objc
 // Objective-C
+NSString *authData = [self fetchAuthData]; // GET /session-monitoring-api/v1/auth
 SEONSTSessionConfig *config = [[SEONSTSessionConfig alloc]
-    initWithLabel:@"checkout-flow"
+    initWithAuthData:authData
+    label:@"checkout-flow"
     maxBackgroundDuration:60];
 [[SEONSTStream sharedManager] startStreamWithConfig:config];
 ```
 
-To start a session with default settings, omit the config:
+To start a session without a label or background resumption window:
 
 ```swift
 // Swift
-SEONSTStream.sharedManager()?.startStream()
-```
-
-```objc
-// Objective-C
-[[SEONSTStream sharedManager] startStream];
+let config = SEONSTSessionConfig(authData: authData, label: nil, maxBackgroundDuration: 0)
+SEONSTStream.sharedManager()?.startStreamWith(config: config)
 ```
 
 The delegate's `onStreamStarted(_:)` is called with the session ID once the session has started. Errors are reported via `onStreamError(_:)`.
@@ -208,8 +210,9 @@ The delegate's `onStreamStarted(_:)` is called with the session ID once the sess
 
 | Parameter               | Type           | Description                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ----------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `label`                 | `String?`      | Optional session label. Maximum length is `32` characters. Passing `nil` is valid. If the label exceeds `32` characters, the session start fails with `SEONSTErrorCodeLabelTooLong`.                                                                                                                                                                                                                                                   |
-| `maxBackgroundDuration` | `TimeInterval` | Time window in seconds. If the app is restarted (due to a crash, user close, or system termination) within this window and `startStream` is called with the same `label`, the SDK resumes the previous session instead of starting a new one. Pass `0` to disable resumption. Maximum value is `172800` seconds (48 hours). Exceeding this limit fails the session start with `SEONSTErrorCodeMaxBackgroundDurationTooBig`. |
+| `authData`              | `String?`      | Opaque token from the SEON authentication API (`GET /session-monitoring-api/v1/auth`). Contains the session JWT and additional SDK configuration. Fetch a fresh value before each session.                                                                                                                                                                                  |
+| `label`                 | `String?`      | Optional session label. Maximum length is `32` characters. Passing `nil` is valid. If the label exceeds `32` characters, the session start fails with `SEONSTErrorCodeLabelTooLong`. Required for session resumption after app restart or after an auth error.                                                                                                                                                                         |
+| `maxBackgroundDuration` | `TimeInterval` | Time window in seconds. If the app is restarted (due to a crash, user close, or system termination) within this window and `startStream` is called with the same `label`, the SDK resumes the previous session instead of starting a new one. The same window applies when resuming after `SEONSTErrorCodeAuthenticationFailed` with fresh `authData`. Pass `0` to disable resumption. Maximum value is `172800` seconds (48 hours). Exceeding this limit fails the session start with `SEONSTErrorCodeMaxBackgroundDurationTooBig`. |
 
 
 ### Stopping a session
@@ -226,19 +229,22 @@ SEONSTStream.sharedManager()?.finishStream()
 
 The delegate's `onStreamFinished` is called once the session has stopped. Errors are reported via `onStreamError(_:)`.
 
-### Updating the token
+### Recovering from an expired auth failure
 
-Use `setToken(_:)` to replace the API token after initialization, for example when rotating credentials.
+When authentication fails, the delegate receives `onStreamFinished`, then `onStreamError(_:)` with `SEONSTErrorCodeAuthenticationFailed`. Fetch fresh `authData` from the authentication API and start again:
 
 ```swift
 // Swift
-SEONSTStream.sharedManager()?.setToken("NEW_API_TOKEN")
+let freshAuthData = await fetchAuthData() // GET /session-monitoring-api/v1/auth
+let config = SEONSTSessionConfig(
+    authData: freshAuthData,
+    label: "checkout-flow",              // same label as before
+    maxBackgroundDuration: 60            // still within the resumption window
+)
+SEONSTStream.sharedManager()?.startStreamWith(config: config)
 ```
 
-```objc
-// Objective-C
-[[SEONSTStream sharedManager] setToken:@"NEW_API_TOKEN"];
-```
+Use the same `label` and stay within `maxBackgroundDuration` so the SDK continues the previous session instead of creating a new stream ID.
 
 ### Custom events
 
@@ -285,7 +291,7 @@ BOOL running = [[SEONSTStream sharedManager] isRunning];
 
 The SDK reports errors through three mechanisms:
 
-- Initialization misuse (calling `sharedManager()` before `initialize()`) returns nil and calls delegate `onStreamError(_:)`.
+- Initialization misuse (calling `sharedManager()` before `initializeSdk()`) returns nil and calls delegate `onStreamError(_:)`.
 - Session lifecycle events, runtime failures, and other errors are reported through the delegate's `onStreamError(_:)` method.
 - `createCustomEventWith(name:additionalData:)` returns `NSError` synchronously.
 
@@ -302,12 +308,14 @@ All `NSError` values produced by the SDK use domain `SEONSTErrorDomain`. Codes a
 | 1006 | `SEONSTErrorCodeCustomEventDataTooLong`      | The custom event `additionalData` exceeds `1024` characters.                                                                                                                        |
 | 1007 | `SEONSTErrorCodeDatabase`                    | The SDK could not create or write to its local event storage.                                                                                                                       |
 | 1008 | `SEONSTErrorCodeCustomEventNameTooLong`      | The custom event `name` exceeds `32` characters.                                                                                                                                    |
-| 1009 | `SEONSTErrorCodeSdkNotInitialized`           | An SDK method was called before `initialize()`.                                                                                                                                     |
-| 1010 | `SEONSTErrorCodeSdkAlreadyInitialized`       | `initialize()` was called more than once.                                                                                                                                           |
+| 1009 | `SEONSTErrorCodeSdkNotInitialized`           | An SDK method was called before `initializeSdk()`.                                                                                                                                     |
+| 1010 | `SEONSTErrorCodeSdkAlreadyInitialized`       | `initializeSdk()` was called more than once.                                                                                                                                           |
 | 1011 | `SEONSTErrorCodeMaxBackgroundDurationTooBig` | The `maxBackgroundDuration` value exceeds the maximum of `172800` seconds (48 hours).                                                                                               |
 | 1012 | `SEONSTErrorCodeSessionTimeout`              | The server reported that the session reached its maximum allowed duration. The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down. |
-| 1013 | `SEONSTErrorCodeAuthenticationFailed`        | The backend rejected authentication (for example an invalid API token). The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down.      |
+| 1013 | `SEONSTErrorCodeAuthenticationFailed`        | The backend rejected authentication (for example an expired or invalid JWT). The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down. The session is kept so you can resume with a new JWT and the same `label` within `maxBackgroundDuration`. |
 | 1014 | `SEONSTErrorCodeIpBanned`                    | The client IP address was banned by the service. The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down.                           |
+| 1015 | `SEONSTErrorCodeStorage`                     | The SDK failed to write event data to local storage during an active session. The delegate receives `onStreamFinished`, then `onStreamError(_:)` with this code while the stream is torn down. |
+| 1016 | `SEONSTErrorCodeSessionConfig`               | The `authData` passed to `startStreamWith(config:)` is malformed or missing required fields (JWT or domain list). The session does not start. |
 
 
 Other `NSError` values may use different domains (for example URL or system errors). Rare internal failures may surface with domain `SEONSTErrorDomain` and code `-1` when no specific `SEONSTErrorCode` applies.
@@ -383,6 +391,8 @@ What is recorded:
 ## Common integration difficulties
 
 - **Initialize before first use** — Calling `SEONSTStream.sharedManager()` before `SEONSTStream.initialize()` returns `nil` and calls the delegate `onStreamError(_:)` method. Initialize the SDK once during app startup.
+- **Fetch authData per session** — Call `GET /session-monitoring-api/v1/auth` with your `X-API-KEY` header before each session and pass the response string as `SEONSTSessionConfig.authData`. Do not embed long-lived secrets in the app binary.
+- **Resume after auth failure** — On authentication failure the SDK clears the running stream but keeps the stored session. Call `startStreamWith(config:)` again with fresh `authData`, the same `label`, and a `maxBackgroundDuration` window that still covers the gap since the last event.
 - **Set the delegate before `initialize()`** — To avoid missing any early lifecycle events or errors, set `SEONSTStream.setDelegate(_:)` before calling `initialize()`.
 - **SwiftUI view identification requires root installation** — If you use SwiftUI and want custom `seonIdentify...` values to resolve correctly, install `.seonInstallViewManager()` or `SeonRoot` at the top of your SwiftUI hierarchy.
 - **Session labels are validated immediately** — If `label` is longer than `32` characters, `startStreamWith` fails and the delegate receives `SEONSTErrorCodeLabelTooLong` via `onStreamError(_:)`.
@@ -439,6 +449,13 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 ---
 
 ## Changelog
+
+### 1.1.0
+
+- `SEONSTSessionConfig.authData` replaces `token`: pass the opaque `authData` string from `GET /session-monitoring-api/v1/auth` to start a session. The SDK extracts the JWT and additional configuration from it automatically.
+- Introduced new initialize method `[SEONSTStream initializeSdk]`
+- `[SEONSTStream initialize:(SEONSTGlobalConfig *)configuration]`, `SEONSTGlobalConfig` and `setToken(_:)` are deprecated
+- Authentication failures end the stream with `SEONSTErrorCodeAuthenticationFailed` while preserving the session for resumption within `maxBackgroundDuration`
 
 ### 1.0.1
 
