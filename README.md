@@ -25,14 +25,14 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
-Select version `1.1.0` or later.
+Select version `1.2.0` or later.
 
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '1.1.0'
+pod 'SeonStreamSDK', '1.2.0'
 ```
 
 Then run:
@@ -543,6 +543,7 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 ### 1.2.0
 
 - **Form tagging** — allows clients to define logical forms and assign UI elements to them, enabling to produce more precise form fill-out signals. See [Form tagging](#form-tagging).
+- Improve network transmission logic
 
 ### 1.1.0
 
