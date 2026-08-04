@@ -25,14 +25,14 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
-Select version `1.1.0` or later.
+Select version `1.2.0` or later.
 
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '1.1.0'
+pod 'SeonStreamSDK', '1.2.0'
 ```
 
 Then run:
@@ -360,6 +360,92 @@ If no identifier is set, the SDK falls back to the view's `accessibilityIdentifi
 
 ---
 
+## Form tagging
+
+Form tagging allows you to define logical forms and assign UI elements to them, enabling the SDK to produce more precise form fill-out signals. Without it, every input is reported on its own; with it, SEON also knows which elements belong to the same form, how many elements the form consists of, and which of them are optional.
+
+> **Availability:** SDK 1.2.0 or higher.
+
+Create one `SEONSTFormTag` per logical form and pass it while identifying each element that belongs to that form.
+
+
+| Parameter          | Type      | Description                                                                                                                                           |
+| ------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `identifier`       | `String`  | Stable identifier of the form. The value is normalised: it is trimmed, whitespace is replaced with `_`, and it is lowercased.                          |
+| `displayName`      | `String?` | Human-readable form name. Optional — pass `nil` to report the identifier only.                                                                         |
+| `numberOfElements` | `Int`     | Total number of elements the complete form consists of, including optional ones. Used to measure fill-out progress, so keep it in sync with your form. |
+
+
+Call `optional()` on the tag when attaching it to an element that is not required for the form to count as filled out. It returns a copy of the tag, so the same instance can still be used for the required elements.
+
+### SwiftUI
+
+```swift
+struct CheckoutForm: View {
+    @State private var name = ""
+    @State private var email = ""
+    @State private var note = ""
+
+    private let form = SEONSTFormTag(
+        identifier: "checkout_form",
+        displayName: "Checkout form",
+        numberOfElements: 3
+    )
+
+    var body: some View {
+        Form {
+            TextField("Name", text: $name)
+                .seonIdentifyInput("checkout_name", formTag: form)
+
+            TextField("Email", text: $email)
+                .seonIdentifyInput("checkout_email", formTag: form)
+
+            TextEditor(text: $note)
+                .seonIdentifyInput("checkout_note", formTag: form.optional())
+        }
+    }
+}
+```
+
+As with any SwiftUI identification, `.seonInstallViewManager()` or `SeonRoot` must be installed at the root of the view hierarchy.
+
+### UIKit
+
+```swift
+// Swift
+let form = SEONSTFormTag(
+    identifier: "checkout_form",
+    displayName: "Checkout form",
+    numberOfElements: 3
+)
+
+nameField.seonIdentifyInput("checkout_name", formTag: form)
+emailField.seonIdentifyInput("checkout_email", formTag: form)
+noteTextView.seonIdentifyInput("checkout_note", formTag: form.optional())
+```
+
+```objc
+// Objective-C
+SEONSTFormTag *form = [[SEONSTFormTag alloc] initWithIdentifier:@"checkout_form"
+                                                    displayName:@"Checkout form"
+                                               numberOfElements:3];
+
+[self.nameField seonIdentifyInput:@"checkout_name" data:nil formTag:form];
+[self.emailField seonIdentifyInput:@"checkout_email" data:nil formTag:form];
+[self.noteTextView seonIdentifyInput:@"checkout_note" data:nil formTag:form.optional];
+```
+
+The same `formTag:` parameter is available on `seonIdentify(...)` and `seonIdentifyButton(...)` for elements that are not text inputs.
+
+### Behaviour notes
+
+- **Multi-page forms** — keep a single tag instance (for example in a view model) and attach it on every page. Elements reported from different screens are grouped into the same form as long as they share the identifier.
+- **Multiple forms on one screen** — create a separate tag per form. Elements are grouped by form identifier, so the forms stay independent.
+- **Untagged elements** — inputs without a form tag keep being tracked as standalone elements.
+- **Re-apply after view recreation** — tags live on the view instance, so elements must be tagged again whenever the view is recreated (a recreated SwiftUI body, a reused cell, or a rebuilt view controller).
+
+---
+
 ## Screen and app state tracking
 
 During an active session, the SDK automatically tracks app foreground and background transitions. It also records screen transitions emitted through navigation-controller-based flows and uses the screen title or view-controller class name as the screen identity.
@@ -453,6 +539,11 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 ---
 
 ## Changelog
+
+### 1.2.0
+
+- **Form tagging** — allows clients to define logical forms and assign UI elements to them, enabling to produce more precise form fill-out signals. See [Form tagging](#form-tagging).
+- Improve network transmission logic
 
 ### 1.1.0
 
