@@ -540,10 +540,14 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 
 ## Changelog
 
-### 1.2.0
+### 1.2.1
 
 - **Form tagging** — allows clients to define logical forms and assign UI elements to them, enabling to produce more precise form fill-out signals. See [Form tagging](#form-tagging).
 - Improve network transmission logic
+
+### 1.2.0
+
+> ⚠️ **IMPORTANT! This version was built against a yet unsupported iOS SDK 27. Use v1.2.1 instead.** ⚠️
 
 ### 1.1.0
 
