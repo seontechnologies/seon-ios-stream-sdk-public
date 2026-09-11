@@ -536,8 +536,6 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 | SwiftUI views | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling and resolved against SwiftUI view data registered through `seonIdentify` modifiers. |
 
 
----
-
 ## App Store Privacy (Privacy Manifest)
 
 The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework. Xcode aggregates it, together with the manifests of your app and other SDKs, into your app's **Privacy Report** (Product → Archive → right-click the archive → *Generate Privacy Report*). Use that report when filling in the **App Privacy** section in App Store Connect. The manifest does **not** update your App Store privacy labels automatically; as the app developer you remain responsible for keeping them accurate.
@@ -561,8 +559,6 @@ The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework.
 | --- | --- | --- |
 | System boot time | `35F9.1` | Measuring elapsed time between internally tracked events (e.g. gesture duration, UI element cache expiry) |
 | User Defaults | `CA92.1` | Persisting the session identifier (`streamId`) used to resume an interrupted session, and queuing internal SDK error reports for later transmission |
-
----
 
 ## Changelog
 
