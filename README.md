@@ -25,14 +25,14 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
-Select version `1.2.0` or later.
+Select version `1.3.0` or later.
 
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '1.2.0'
+pod 'SeonStreamSDK', '1.3.0'
 ```
 
 Then run:
@@ -536,9 +536,38 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 | SwiftUI views | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling and resolved against SwiftUI view data registered through `seonIdentify` modifiers. |
 
 
----
+## App Store Privacy (Privacy Manifest)
+
+The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework. Xcode aggregates it, together with the manifests of your app and other SDKs, into your app's **Privacy Report** (Product → Archive → right-click the archive → *Generate Privacy Report*). Use that report when filling in the **App Privacy** section in App Store Connect. The manifest does **not** update your App Store privacy labels automatically; as the app developer you remain responsible for keeping them accurate.
+
+### Declared data collection
+
+| Data type | Linked to the user | Used for tracking | Purpose | Collected when |
+| --- | --- | --- | --- | --- |
+| Product Interaction | Yes | No | App Functionality | Always (touch interactions, screen and view transitions, form fill-out progress, and custom events created with `createCustomEventWith`) |
+| Performance Data | Yes | No | App Functionality | Always (timing signals associated with tracked interactions, e.g. gesture duration, movement vector and typing cadence) |
+| Other Diagnostic Data | Yes | No | App Functionality | Always (internal SDK error/exception reports, queued locally and transmitted for diagnostics) |
+| Other Data Types | Yes | No | App Functionality | Always (device, OS, network, and app-state signals — e.g. app foreground/background transitions and screen lock state — used to compute behavioural risk signals) |
+
+**Why "linked to the user":** every event collected during a session is tagged with a `streamId` — a UUID the SDK generates and persists so it can resume a session across an app restart within `maxBackgroundDuration` — and is uploaded together with the `authData`/JWT issued for your authenticated session (see [Authentication](#authentication)). Under [Apple's definition](https://developer.apple.com/app-store/app-privacy-details/#linked-data), data associated with a user's account or session counts as linked to the user's identity. If your App Store privacy labels currently list these data types under *Data Not Linked to You*, move them to *Data Linked to You*.
+
+**Tracking:** the SDK declares `NSPrivacyTracking = false` and no tracking domains. The collected data is used solely for fraud prevention and behavioural risk assessment, which Apple explicitly excludes from its definition of tracking. The SDK does not require you to show the App Tracking Transparency prompt.
+
+### Declared required reason APIs
+
+| API category | Reason code | Used for |
+| --- | --- | --- |
+| System boot time | `35F9.1` | Measuring elapsed time between internally tracked events (e.g. gesture duration, UI element cache expiry) |
+| User Defaults | `CA92.1` | Persisting the session identifier (`streamId`) used to resume an interrupted session, and queuing internal SDK error reports for later transmission |
 
 ## Changelog
+
+### 1.3.0
+
+> **Note:** the SDK now ships a privacy manifest. See the [App Store Privacy](#app-store-privacy-privacy-manifest) section for details.
+
+- Added `PrivacyInfo.xcprivacy`, declaring the SDK's collected data types and required reason API usage for Apple's App Store privacy requirements.
+- Internal changes and improvements for upcoming features.
 
 ### 1.2.1
 
