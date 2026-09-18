@@ -562,6 +562,10 @@ The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework.
 
 ## Changelog
 
+### 1.3.1
+
+- Fixed minor internal bugs
+
 ### 1.3.0
 
 > **Note:** the SDK now ships a privacy manifest. See the [App Store Privacy](#app-store-privacy-privacy-manifest) section for details.
