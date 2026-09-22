@@ -562,9 +562,13 @@ The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework.
 
 ## Changelog
 
+### 1.3.2
+
+- Minor fixes and improvements.
+
 ### 1.3.1
 
-- Fixed minor internal bugs
+- Fixed minor internal bugs.
 
 ### 1.3.0
 
