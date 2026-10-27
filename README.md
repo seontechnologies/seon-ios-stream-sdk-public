@@ -241,7 +241,7 @@ Use `SEONSTSessionConfig` to configure a session. `authData` from the SEON authe
 
 ```swift
 // Swift
-let authData = await fetchAuthData() // GET /session-monitoring-api/v1/auth
+let authData = await fetchAuthData() // POST /session-monitoring-api/v1/auth
 let config = SEONSTSessionConfig(
     authData: authData,
     label: "checkout-flow",
@@ -253,7 +253,7 @@ stream.startStreamWith(config: config)
 
 ```objc
 // Objective-C
-NSString *authData = [self fetchAuthData]; // GET /session-monitoring-api/v1/auth
+NSString *authData = [self fetchAuthData]; // POST /session-monitoring-api/v1/auth
 SEONSTSessionConfig *config = [[SEONSTSessionConfig alloc]
     initWithAuthData:authData
     label:@"checkout-flow"
@@ -275,7 +275,7 @@ The delegate's `onStreamStarted(_:)` is called with the session ID once the sess
 
 | Parameter               | Type           | Description                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ----------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `authData`              | `String`       | Opaque token from the SEON authentication API (`GET /session-monitoring-api/v1/auth`). Contains the session JWT and additional SDK configuration. Fetch a fresh value before each session. A missing or malformed value fails the session start with `SEONSTNonCriticalErrorCode.sessionConfig`.                                                                                                              |
+| `authData`              | `String`       | Opaque token from the SEON authentication API (`POST /session-monitoring-api/v1/auth`). Contains the session JWT and additional SDK configuration. Fetch a fresh value before each session. A missing or malformed value fails the session start with `SEONSTNonCriticalErrorCode.sessionConfig`.                                                                                                              |
 | `label`                 | `String?`      | Optional session label. Maximum length is `32` characters. Passing `nil` is valid. A longer label fails the session start with `SEONSTNonCriticalErrorCode.sessionConfig`. Required for session resumption after app restart or after an auth error.                                                                                                                                                       |
 | `maxBackgroundDuration` | `TimeInterval` | Time window in seconds. If the app is restarted (due to a crash, user close, or system termination) within this window and `startStream` is called with the same `label`, the SDK resumes the previous session instead of starting a new one. The same window applies when resuming after an authentication failure with fresh `authData`. Pass `0` to disable resumption. Maximum value is `172800` seconds (48 hours). A negative value or a value above the maximum fails the session start with `SEONSTNonCriticalErrorCode.sessionConfig`. |
 
@@ -301,7 +301,7 @@ When authentication fails, the delegate receives a single `onStreamFinished(_:)`
 
 ```swift
 // Swift
-let freshAuthData = await fetchAuthData() // GET /session-monitoring-api/v1/auth
+let freshAuthData = await fetchAuthData() // POST /session-monitoring-api/v1/auth
 let config = SEONSTSessionConfig(
     authData: freshAuthData,
     label: "checkout-flow",              // same label as before
@@ -365,20 +365,20 @@ All errors derive from `SEONSTError` (an `NSError` subclass) and use the domain 
 | Code | Constant                                           | Cause                                                                                                           | What happens                                                                                                                                             | Reported via                             | Message                                                                                   |
 | ---- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
 | 1001 | `SEONSTNonCriticalErrorCodeStreamAlreadyRunning`   | `startStreamWith` was called while a session is already running.                                                | Nothing changes. The running session continues.                                                                                                          | `onStreamError`                          | Stream is already running.                                                                |
-| 1002 | `SEONSTNonCriticalErrorCodeStartStream`            | Internal failure while starting: an exception, local storage that cannot be opened, or a stream ID that cannot be generated. | The session does not start. A new session is cleared.                                                                                                    | `onStreamError`, no `onStreamStarted`    | Internal error during stream start.                                                       |
+| 1002 | `SEONSTNonCriticalErrorCodeStartStream`            | Internal failure while starting the session. | The session does not start.                                                                                                    | `onStreamError`, no `onStreamStarted`    | Internal error during stream start.                                                       |
 | 1004 | `SEONSTNonCriticalErrorCodeStreamNotRunning`       | `finishStream` or a custom event while no session is running.                                                   | Nothing changes.                                                                                                                                         | `onStreamError`                          | Stream is not running.                                                                    |
-| 1005 | `SEONSTCriticalErrorCodeFinishStream`              | An exception during teardown in `finishStream`.                                                                 | The session stops.                                                                                                                                       | `onStreamFinished`                       | Internal error during stream stop.                                                        |
+| 1005 | `SEONSTCriticalErrorCodeFinishStream`              | Internal failure while stopping the session.                                                                 | The session stops.                                                                                                                                       | `onStreamFinished`                       | Internal error during stream stop.                                                        |
 | 1006 | `SEONSTNonCriticalErrorCodeCustomEventInvalid`     | The custom event name is missing or longer than `32` characters, or `additionalData` is longer than `1024` characters. | The event is dropped. The session keeps running.                                                                                                         | `onStreamError`                          | Custom event name is mandatory and cannot be longer than 32 characters. / Custom event additional data is too long. Maximum length is 1024 characters. |
 | 1009 | `SEONSTInitializeErrorCodeInitialization`          | The SDK was used before initialization, or `initializeSdk` was called a second time.                            | Returned/thrown synchronously. After a second `initializeSdk` the existing instance stays.                                                               | Synchronous (not the delegate)           | SeonStream SDK has not been initialized. / SeonStream SDK is already initialized.         |
 | 1012 | `SEONSTCriticalErrorCodeSessionTimeout`            | The backend reported that the session reached its maximum allowed duration.                                     | The session stops and is cleared.                                                                                                                        | `onStreamFinished`                       | Stream is expired.                                                                        |
 | 1013 | `SEONSTCriticalErrorCodeAuthenticationFailed`      | The backend rejected authentication, for example an expired or invalid JWT.                                     | The session stops. The stored session is kept: a later start with fresh `authData` and the same `label` resumes it within `maxBackgroundDuration`.       | `onStreamFinished`                       | Auth token is expired.                                                                    |
 | 1014 | `SEONSTCriticalErrorCodeIpBanned`                  | The client IP address was banned by the service.                                                                | The session stops. The stored session is kept.                                                                                                           | `onStreamFinished`                       | IP address is banned.                                                                     |
-| 1015 | `SEONSTCriticalErrorCodeStorage`                   | The SDK failed to write event data to local storage during a session.                                           | The session stops.                                                                                                                                       | `onStreamFinished`                       | Internal storage error.                                                                   |
-| 1016 | `SEONSTNonCriticalErrorCodeSessionConfig`          | The session configuration is invalid: `label` longer than `32` characters, `maxBackgroundDuration` negative or above `172800` seconds, or `authData` missing, malformed, or without a JWT or domain list. | The session does not start. A new session is cleared.                                                                                                    | `onStreamError`, no `onStreamStarted`    | Label is too long. Maximum length is 32 characters. / maxBackgroundDuration is invalid. It must be between 0 and 2 days (172 800 s). / authData cannot be null. / authData is invalid. |
-| 1017 | `SEONSTNonCriticalErrorCodeRateLimited`            | The backend rate limit was reached (HTTP 429).                                                                  | The session keeps running. Transmission backs off and retries. The error is reported once per rate-limit episode, and again only after a successful upload. | `onStreamError`                          | Rate limit reached. Data transmission is throttled.                                       |
+| 1015 | `SEONSTCriticalErrorCodeStorage`                   | An internal storage failure occurred during a session.                                           | The session stops.                                                                                                                                       | `onStreamFinished`                       | Internal storage error.                                                                   |
+| 1016 | `SEONSTNonCriticalErrorCodeSessionConfig`          | The session configuration is invalid: `label` longer than `32` characters, `maxBackgroundDuration` negative or above `172800` seconds, or `authData` missing or invalid. | The session does not start.                                                                                                    | `onStreamError`, no `onStreamStarted`    | Label is too long. Maximum length is 32 characters. / maxBackgroundDuration is invalid. It must be between 0 and 2 days (172 800 s). / authData cannot be null. / authData is invalid. |
+| 1017 | `SEONSTNonCriticalErrorCodeRateLimited`            | The backend rate limit was reached (HTTP 429).                                                                  | The session keeps running and the SDK retries automatically. The error is reported once per rate-limit episode, and again only after a successful upload. | `onStreamError`                          | Rate limit reached. Data transmission is throttled.                                       |
 
 
-Other HTTP errors and transport failures are never reported to the app: the SDK logs them and retries with backoff.
+Other network failures are not reported to the app: the SDK retries automatically.
 
 Codes `1003`, `1007`, `1008`, `1010` and `1011` from SDK 1.x no longer exist. Their causes are reported under the codes above; see [Migrating from 1.x to 2.0](#migrating-from-1x-to-20).
 
@@ -409,7 +409,7 @@ loginButton.seonIdentify("login_button", type: .button, interactable: true, data
 
 ```objc
 [self.loginButton seonIdentify:@"login_button"
-                          type:SeonViewTypeButton
+                          type:SEONSTViewTypeButton
                   interactable:YES
                           data:nil];
 ```
@@ -558,7 +558,7 @@ struct CheckoutView: View {
 }
 ```
 
-The modifier tags the view controller that hosts the view, the same one the SDK would otherwise name by its class. It does not require `.seonInstallViewManager()` or `SeonRoot`.
+The tag applies to the screen the view belongs to. It does not require `.seonInstallViewManager()` or `SeonRoot`.
 
 #### Excluding a screen
 
@@ -584,7 +584,7 @@ class CheckoutAddressPageViewController: UIViewController {
 - **Untagged screens** keep being tracked as before, by title or class name.
 - **Container view controllers** — an untagged view controller that has child view controllers is not reported (unchanged). A tagged container is reported, because the tag is an explicit request to track it. Tag the parent and exclude the children to report one screen for the whole flow.
 - **One tag per view controller** — tagging again replaces the previous tag, also at runtime; the new values are used for the following screen events.
-- **SwiftUI** — if several `seonIdentifyScreen` modifiers end up in the same hosting view controller (for example one on a parent view and one on a child), the last one applied wins. Apply it once per screen.
+- **SwiftUI** — if several `seonIdentifyScreen` modifiers end up on the same screen (for example one on a parent view and one on a child), the last one applied wins. Apply it once per screen.
 
 ### Manual screen tracking
 
@@ -619,7 +619,7 @@ The SDK automatically monitors text input interactions during an active session,
 
 > **Privacy:** The SDK does not capture the actual values typed into input fields. Only interaction metadata such as timing, character count deltas, focus changes, and clipboard action type is recorded.
 
-The SDK observes `UITextField` and `UITextView` editing notifications and temporarily inserts itself as a delegate while preserving and forwarding your existing delegate callbacks.
+The SDK works alongside your existing `UITextField` and `UITextView` delegates: your delegate callbacks keep being called as usual.
 
 What is recorded:
 
@@ -641,11 +641,12 @@ try SEONSTStream.initializeSdk(featureConfig: SEONSTFeatureConfig(autoScreenTrac
 With `autoViewTracking` off:
 
 - **Touches** are reported only for views tagged with `seonIdentify`, `seonIdentifyButton` or `seonIdentifyInput`. Touches on untagged views are ignored.
-- **Typing and focus** are reported only for text fields that are tagged. A UIKit `UITextField` or `UITextView` counts when it carries `seonIdentify` data. A SwiftUI field counts when its frame sits inside a tagged SwiftUI view, so tag the field itself (`seonIdentifyInput`) rather than only its container.
+- **Typing and focus** are reported only for text fields that are tagged. A UIKit `UITextField` or `UITextView` counts when it carries `seonIdentify` data. Tag SwiftUI fields themselves (`seonIdentifyInput`) rather than only their container.
 - **Clipboard** copy and paste actions are reported only while a tagged field is focused.
+- `UIApplication.sendEvent` is **not** swizzled. Touch tracking works only through the views you tagged.
 - The recorded events are the same as in automatic mode; only the set of reported elements changes. The SDK still never captures typed values or clipboard contents.
 - Untagged views are not resolved at all, so the accessibility-identifier and class-name fallbacks described under [View identification](#view-identification) do not apply.
-- In SwiftUI, tagged views are resolved through the view manager, so `.seonInstallViewManager()` or `SeonRoot` must be installed at the root of the hierarchy.
+- In SwiftUI, `.seonInstallViewManager()` or `SeonRoot` must be installed at the root of the hierarchy.
 
 `autoScreenTracking` and `autoViewTracking` are independent: you can combine manual UI tracking with automatic screen tracking, screen tagging, or manual screen tracking.
 
@@ -656,7 +657,7 @@ With `autoViewTracking` off:
 > **Note:** Use SDK version 2.0.0 or higher. If you are still on 1.x, see [Migrating from 1.x to 2.0](#migrating-from-1x-to-20).
 
 - **Initialize before first use** — `SEONSTStream.sharedManager()` throws an `SEONSTInitializeError` (`SEONSTInitializeErrorCode.initialization`) if it is called before `SEONSTStream.initializeSdk()`, and `initializeSdk()` throws the same error when called a second time. In Objective-C the `...WithError:` methods return `nil` and set the error out-parameter. These errors are never sent to the delegate. Initialize the SDK once during app startup.
-- **Fetch authData per session** — Call `GET /session-monitoring-api/v1/auth` with your `X-API-KEY` header before each session and pass the response string as `SEONSTSessionConfig.authData`. Do not embed long-lived secrets in the app binary.
+- **Fetch authData per session** — Call `POST /session-monitoring-api/v1/auth` with your `X-API-KEY` header before each session and pass the response string as `SEONSTSessionConfig.authData`. Do not embed long-lived secrets in the app binary.
 - **Resume after auth failure** — On authentication failure the SDK stops the running stream (`onStreamFinished` with `.authenticationFailed`) but keeps the stored session. Call `startStreamWith(config:)` again with fresh `authData`, the same `label`, and a `maxBackgroundDuration` window that still covers the gap since the last event.
 - **Set the delegate before `initializeSdk()`** — To avoid missing any early lifecycle events or errors, set `SEONSTStream.setDelegate(_:)` before calling `initializeSdk()`.
 - **`onStreamFinished` is the only "session ended" signal** — Handle critical errors there. `onStreamError` never means that the session stopped.
@@ -690,7 +691,7 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 | UIKit view with `seonIdentify()`                                                    | Yes         | Custom identifier                  | Highest priority.                                                                                                                                                                                                                                                                                                       |
 | UIKit view with `accessibilityIdentifier`                                           | Yes         | `accessibilityIdentifier` value    | Used when no `seonIdentify()` is set.                                                                                                                                                                                                                                                                                   |
 | UIKit view with `accessibilityLabel`                                                | Yes         | `accessibilityLabel` value         | Used when neither `seonIdentify()` nor `accessibilityIdentifier` is set.                                                                                                                                                                                                                                                |
-| UIKit view with none of the above                                                   | Partial     | Class name or `UNKNOWN`            | The SDK walks up to 5 superviews looking for an identifier. If none is found, the class name is used. Views with no identifiable ancestor appear as `UNKNOWN`.                                                                                                                                                          |
+| UIKit view with none of the above                                                   | Partial     | Class name or `UNKNOWN`            | If no identifier can be found for the view or its surroundings, the class name is used, or `UNKNOWN` when nothing identifiable exists.                                                                                                                                                          |
 | SwiftUI view with `seonIdentify()` / `seonIdentifyButton()` / `seonIdentifyInput()` | Yes         | Custom identifier                  | Requires `.seonInstallViewManager()` or `SeonRoot` at the root of the view hierarchy.                                                                                                                                                                                                                                   |
 | SwiftUI view without a modifier                                                     | Partial     | Accessibility traits or class name | Automatic identification in SwiftUI has limitations because accessibility properties are not always reliable when no accessibility features are active on the device. The SDK resolves accessibility traits (button, image, static text, etc.) when available. Without traits, the internal SwiftUI class name is used. |
 
@@ -710,8 +711,8 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 
 | Scenario      | Tracked? | Notes                                                                                                                                                 |
 | ------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UIKit views   | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling. All touches are recorded regardless of the view's interactability.                 |
-| SwiftUI views | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling and resolved against SwiftUI view data registered through `seonIdentify` modifiers. |
+| UIKit views   | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling, unless `autoViewTracking` is off (see [Manual UI tracking](#manual-ui-tracking)). All touches are recorded regardless of the view's interactability. |
+| SwiftUI views | Yes      | Touch events are captured via `UIApplication.sendEvent` swizzling, unless `autoViewTracking` is off (see [Manual UI tracking](#manual-ui-tracking)). Use the `seonIdentify` modifiers to give the touched views stable identifiers. |
 
 
 ## App Store Privacy (Privacy Manifest)
@@ -735,7 +736,7 @@ The SDK ships a `PrivacyInfo.xcprivacy` privacy manifest inside the XCFramework.
 
 | API category | Reason code | Used for |
 | --- | --- | --- |
-| System boot time | `35F9.1` | Measuring elapsed time between internally tracked events (e.g. gesture duration, UI element cache expiry) |
+| System boot time | `35F9.1` | Measuring elapsed time between internally tracked events (e.g. gesture duration) |
 | User Defaults | `CA92.1` | Persisting the session identifier (`streamId`) used to resume an interrupted session, and queuing internal SDK error reports for later transmission |
 
 ## Migrating from 1.x to 2.0
@@ -923,7 +924,7 @@ If you passed an `SEONSTFeatureConfig` to `initializeSdk(featureConfig:)`, the 1
 
 **First production-ready release.**
 
-- `SEONSTSessionConfig.authData` replaces `token`: pass the opaque `authData` string from `GET /session-monitoring-api/v1/auth` to start a session. The SDK extracts the JWT and additional configuration from it automatically.
+- `SEONSTSessionConfig.authData` replaces `token`: pass the opaque `authData` string from `POST /session-monitoring-api/v1/auth` to start a session. The SDK extracts the JWT and additional configuration from it automatically.
 - Introduced new initialize method `[SEONSTStream initializeSdk]`
 - `[SEONSTStream initialize:(SEONSTGlobalConfig *)configuration]`, `SEONSTGlobalConfig` and `setToken(_:)` are deprecated
 - Authentication failures end the stream with `SEONSTErrorCodeAuthenticationFailed` while preserving the session for resumption within `maxBackgroundDuration`
