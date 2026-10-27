@@ -514,14 +514,14 @@ The SDK also records display lock and unlock state when those system notificatio
 
 ### Screen tagging
 
-By default a screen is identified by its view controller: the `navigationItem.title` if set, otherwise the class name. That identity is often unstable or not meaningful, for example `UIHostingController<…>` for SwiftUI screens, a shared base view controller, or a title that changes with the device language. Screen tagging lets you give a screen an explicit **id** and **name**.
+By default a screen is identified by its view controller: the `navigationItem.title` if set, otherwise the class name. That identity is often not meaningful, for example every pushed screen of a SwiftUI `NavigationStack` shares the same class name, and a title changes with the device language. Screen tagging lets you give a screen an explicit **name** and, optionally, a unique **id**.
 
 > **Availability:** SDK 2.0.0 or higher. Screen tagging applies while automatic screen tracking is on (the default). It has no effect when you report screens with `changeScreen(_:)`.
 
-| Parameter | Type     | Description                                                                                      |
-| --------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `id`      | `String` | Stable identifier of the screen. Reported as the screen's unique id.                             |
-| `name`    | `String` | Human-readable screen name. Reported as the screen's title.                                      |
+| Parameter | Type      | Description                                                                                                                                              |
+| --------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`    | `String`  | Human-readable screen name. Reported as the screen's title.                                                                                              |
+| `id`      | `String?` | Optional unique identifier of the screen, reported as is. When omitted, the unique id is the `name`, normalised: trimmed, whitespace replaced with `_`, and lowercased (`Checkout Form` becomes `checkout_form`). |
 
 #### UIKit
 
@@ -531,7 +531,8 @@ Tag the view controller before it appears, for example in `viewDidLoad()`:
 // Swift
 override func viewDidLoad() {
     super.viewDidLoad()
-    seonIdentifyScreen("checkout", name: "Checkout")
+    seonIdentifyScreen("Checkout Form")
+    // or with an explicit id: seonIdentifyScreen("Checkout Form", id: "checkout_v2")
 }
 ```
 
@@ -539,7 +540,8 @@ override func viewDidLoad() {
 // Objective-C
 - (void)viewDidLoad {
     [super viewDidLoad];
-    [self seonIdentifyScreen:@"checkout" name:@"Checkout"];
+    [self seonIdentifyScreen:@"Checkout Form"];
+    // or with an explicit id: [self seonIdentifyScreen:@"Checkout Form" id:@"checkout_v2"];
 }
 ```
 
@@ -553,7 +555,8 @@ struct CheckoutView: View {
         Form {
             // ...
         }
-        .seonIdentifyScreen("checkout", name: "Checkout")
+        .seonIdentifyScreen("Checkout Form")
+        // or with an explicit id: .seonIdentifyScreen("Checkout Form", id: "checkout_v2")
     }
 }
 ```
@@ -562,21 +565,21 @@ The tag applies to the screen the view belongs to. It does not require `.seonIns
 
 #### Excluding a screen
 
-If the `id` or the `name` is an empty string, the screen is excluded from tracking and no screen events are reported for it. Use this for view controllers that are part of another screen, for example a child view controller of a multi-page form:
+If the `name` is an empty string (or only whitespace), the screen is excluded, whatever the `id` is, from tracking and no screen events are reported for it. Use this for view controllers that are part of another screen, for example a child view controller of a multi-page form:
 
 ```swift
 // Swift
 class CheckoutAddressPageViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        seonIdentifyScreen("", name: "")
+        seonIdentifyScreen("")
     }
 }
 ```
 
 ```objc
 // Objective-C
-[self seonIdentifyScreen:@"" name:@""];
+[self seonIdentifyScreen:@""];
 ```
 
 #### Behaviour notes
@@ -665,6 +668,7 @@ With `autoViewTracking` off:
 - **Session configuration is validated when the session starts** — An invalid `label` (longer than `32` characters), `maxBackgroundDuration` (negative or above `172800` seconds), or `authData` fails the session start. The delegate receives `SEONSTNonCriticalErrorCode.sessionConfig` via `onStreamError(_:)` and no `onStreamStarted(_:)`.
 - **`maxBackgroundDuration` controls session resumption after app restart** — When set, if the app restarts within the specified number of seconds after an unfinished session (crash, user close, or system termination) and `startStream` is called with the same `label`, the SDK resumes the previous session instead of creating a new one. Pass `0` to disable resumption (every `startStream` call creates a new session). The maximum allowed value is `172800` seconds (48 hours).
 - **Custom events require an active session** — `createCustomEventWith` reports `SEONSTNonCriticalErrorCode.streamNotRunning` through `onStreamError(_:)` if no session is active.
+- **Tag every SwiftUI screen** — Pushed screens of a SwiftUI `NavigationStack` all share the same class name, so without a tag they cannot be told apart by their unique id. Tag each screen with `seonIdentifyScreen`.
 - **Tag screens before they appear** — Call `seonIdentifyScreen` in `viewDidLoad()` (UIKit) or add the modifier to the screen's root view (SwiftUI), so that the first screen event already carries the tag.
 
 ---
@@ -678,9 +682,9 @@ The SDK automatically assigns names to screens and UI elements where possible. T
 
 | Scenario                                        | Auto-tagged? | Name source                   | Notes                                                                            |
 | ----------------------------------------------- | ------------ | ----------------------------- | -------------------------------------------------------------------------------- |
-| `UIViewController` (UIKit)                      | Yes          | View-controller class name    | Override by setting the view controller's `title` property, or give it an explicit id and name with [screen tagging](#screen-tagging). |
+| `UIViewController` (UIKit)                      | Yes          | View-controller class name    | Override by setting the view controller's `title` property, or give it an explicit name with [screen tagging](#screen-tagging). |
 | SwiftUI views hosted in a `UIHostingController` | Yes          | Hosting controller class name | The resolved name reflects the hosting controller, not individual SwiftUI views. Use [screen tagging](#screen-tagging) (`.seonIdentifyScreen`) for a stable name. |
-| Screen tagged with `seonIdentifyScreen`         | Yes          | Tag `name` and `id`           | Takes priority over title and class name. An empty `name` or `id` excludes the screen. |
+| Screen tagged with `seonIdentifyScreen`         | Yes          | Tag `name` and optional `id`  | Takes priority over title and class name. The unique id is the given `id`, or the normalised `name`. An empty `name` excludes the screen. |
 
 
 ### View identification
@@ -889,7 +893,7 @@ If you passed an `SEONSTFeatureConfig` to `initializeSdk(featureConfig:)`, the 1
   - All delegate callbacks are delivered on the main thread. Error messages are unified with Android.
 - **Manual UI tracking** — `SEONSTFeatureConfig(autoScreenTracking:autoViewTracking:)` lets you turn off automatic view tracking, so only the views you tag are tracked for touches, typing, focus and clipboard actions. See [Manual UI tracking](#manual-ui-tracking).
 - **Manual screen tracking** — with `autoScreenTracking` off, report screens with `changeScreen(_:)`. See [Manual screen tracking](#manual-screen-tracking).
-- **Screen tagging** — `seonIdentifyScreen(_:name:)` for UIKit view controllers and SwiftUI views gives a screen a stable id and name for automatic screen tracking, and excludes the screen when either value is an empty string. See [Screen tagging](#screen-tagging).
+- **Screen tagging** — `seonIdentifyScreen(_:id:)` for UIKit view controllers and SwiftUI views gives a screen an explicit name and an optional unique id for automatic screen tracking (the id defaults to the normalised name), and excludes the screen when the name is an empty string. See [Screen tagging](#screen-tagging).
 - `SEONSTFeatureConfig` options `screenTrackerEnabled`, `inputTrackerEnabled` and `touchTrackerEnabled` are replaced by `autoScreenTracking` and `autoViewTracking`.
 
 ### 1.3.3
