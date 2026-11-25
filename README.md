@@ -884,6 +884,12 @@ If you passed an `SEONSTFeatureConfig` to `initializeSdk(featureConfig:)`, the 1
 - Fixed a crash that could occur during touch tracking on certain navigation setups.
 - Improved stability on screens with very large or unusual view hierarchies.
 - Internal changes and improvements.
+- **New code signing certificate** — due to a possible breach in one of our suppliers' infrastructure, we rotated the certificate used to sign the SDK's `.xcframework`.
+  - We are not aware of the signing certificate being leaked; we rotated it as a precaution.
+  - The previous versions remain safe to use.
+  - The rotation should have no visible impact on your build process: the new certificate belongs to the same SEON Apple Developer team, so Xcode sees the same signing identity as before.
+  - If Xcode reports that the signature of `SeonStreamSDK.xcframework` has changed after you update, verify that it is signed by SEON Technologies (team ID `H22T9J6ZS3`) and accept the new signature.
+  - The new certificate is `iPhone Distribution: SEON Technologies Korlatolt Felelossegu Tarsasag (H22T9J6ZS3)`, valid until 19 November 2027, with serial number `4D12BFC9CB04EA224621716C63F829ED`.
 
 ### 2.0.0
 
