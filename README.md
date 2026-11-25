@@ -9,7 +9,7 @@ The SEON Stream SDK continuously collects behavioural signals from your iOS appl
 - iOS 15.0 or higher
 - Xcode 15 or higher
 - Swift 5.9 or higher
-- SEON Stream SDK 2.0.0 (see [Migrating from 1.x to 2.0](#migrating-from-1x-to-20); for 1.x, 1.1.0 or higher is the minimum supported version)
+- SEON Stream SDK 2.0.1 (see [Migrating from 1.x to 2.0](#migrating-from-1x-to-20); for 1.x, 1.1.0 or higher is the minimum supported version)
 
 Integrations authenticate with an **authData** token obtained from the SEON authentication API (contact your SEON account representative for access).
 
@@ -25,14 +25,14 @@ In Xcode, select **File → Add Package Dependencies…** and enter the package 
 
 `https://github.com/seontechnologies/seon-ios-stream-sdk-swift-package`
 
-Select version `2.0.0` or later.
+Select version `2.0.1` or later.
 
 ### CocoaPods
 
 Add the SDK to your `Podfile` once the pod name is published:
 
 ```ruby
-pod 'SeonStreamSDK', '2.0.0'
+pod 'SeonStreamSDK', '2.0.1'
 ```
 
 Then run:
@@ -866,7 +866,7 @@ If you passed an `SEONSTFeatureConfig` to `initializeSdk(featureConfig:)`, the 1
 
 ### Migration checklist
 
-1. Update the package or pod to `2.0.0`.
+1. Update the package or pod to `2.0.1`.
 2. Add `try` to `initializeSdk()` and `sharedManager()` calls (Objective-C: use the `...WithError:` methods).
 3. Update the delegate to the new `onStreamFinished(_:)` and `onStreamError(_:)` signatures, and move critical-error handling to `onStreamFinished`.
 4. Replace `SEONSTErrorCode` usages with the typed `errorCode` of the new error classes (see the table above).
@@ -878,6 +878,18 @@ If you passed an `SEONSTFeatureConfig` to `initializeSdk(featureConfig:)`, the 1
 ---
 
 ## Changelog
+
+### 2.0.1
+
+- Fixed a crash that could occur during touch tracking on certain navigation setups.
+- Improved stability on screens with very large or unusual view hierarchies.
+- Internal changes and improvements.
+- **New code signing certificate** — due to a possible breach in one of our suppliers' infrastructure, we rotated the certificate used to sign the SDK's `.xcframework`.
+  - We are not aware of the signing certificate being leaked; we rotated it as a precaution.
+  - The previous versions remain safe to use.
+  - The rotation should have no visible impact on your build process: the new certificate belongs to the same SEON Apple Developer team, so Xcode sees the same signing identity as before.
+  - If Xcode reports that the signature of `SeonStreamSDK.xcframework` has changed after you update, verify that it is signed by SEON Technologies (team ID `H22T9J6ZS3`) and accept the new signature.
+  - The new certificate is `iPhone Distribution: SEON Technologies Korlatolt Felelossegu Tarsasag (H22T9J6ZS3)`, valid until 19 November 2027, with serial number `4D12BFC9CB04EA224621716C63F829ED`.
 
 ### 2.0.0
 
